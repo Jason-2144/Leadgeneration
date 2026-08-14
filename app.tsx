@@ -8,9 +8,11 @@ import { loadGoogleMapsScript, searchPlaces } from './services/mapsService';
 import { getCustomSupabaseClient } from './services/supabaseClient';
 import { PlaceResult, SearchError, SavedLead } from './types';
 
+const HARDCODED_GOOGLE_MAPS_API_KEY = 'AIzaSyBSkRVGAnQUQY6NFklYVQQfqUBxWX1CU2c';
+
 const App: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>(() => {
-    return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || localStorage.getItem('google_maps_api_key') || '';
+    return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || localStorage.getItem('google_maps_api_key') || HARDCODED_GOOGLE_MAPS_API_KEY;
   });
 
   const handleApiConnected = (key: string) => {

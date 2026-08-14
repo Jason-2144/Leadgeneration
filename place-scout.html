@@ -327,7 +327,7 @@
 
         // --- MAIN APP ---
         const App = () => {
-            const [apiKey, setApiKey] = useState(() => localStorage.getItem('google_maps_api_key') || '');
+            const [apiKey, setApiKey] = useState(() => localStorage.getItem('google_maps_api_key') || 'AIzaSyBSkRVGAnQUQY6NFklYVQQfqUBxWX1CU2c');
             
             const handleApiConnected = (key) => {
                 localStorage.setItem('google_maps_api_key', key);
