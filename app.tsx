@@ -130,6 +130,41 @@ const App: React.FC = () => {
       setPlaces([]);
     }
 
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    // --- SEARCH CACHE CHECK (Prevents duplicate Google API billing) ---
+    try {
+      const existing: SavedLead[] = JSON.parse(localStorage.getItem('saved_leads_local') || '[]');
+      const cachedLeads = existing.filter(l => (l.search_query || '').trim().toLowerCase() === normalizedQuery);
+
+      if (cachedLeads.length > 0) {
+        // Map cached SavedLead objects back to PlaceResult for display
+        const mappedResults: PlaceResult[] = cachedLeads.map(l => ({
+          id: l.place_id || l.id,
+          displayName: l.display_name,
+          formattedAddress: l.formatted_address,
+          nationalPhoneNumber: l.phone_number,
+          websiteURI: l.website_uri,
+          location: null
+        }));
+
+        setPlaces(prev => {
+          if (keepResults) {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newPlaces = mappedResults.filter(p => !existingIds.has(p.id));
+            return [...prev, ...newPlaces];
+          }
+          return mappedResults;
+        });
+
+        setIsLoading(false);
+        return; // Zero API cost hit!
+      }
+    } catch (err) {
+      console.warn('Cache lookup skipped:', err);
+    }
+
+    // --- GOOGLE MAPS API CALL ---
     try {
       await loadGoogleMapsScript(apiKey);
       const results = await searchPlaces(searchQuery);
@@ -143,7 +178,7 @@ const App: React.FC = () => {
         return results;
       });
 
-      // Automatically save all fetched leads directly into Supabase!
+      // Automatically save new leads to database & local cache
       autoSaveLeadsToDatabase(results, searchQuery);
 
     } catch (err: any) {

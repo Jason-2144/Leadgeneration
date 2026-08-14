@@ -107,6 +107,55 @@ const SavedLeadsPage: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState<string>('');
+
+  const handleRenameCategory = (oldCategory: string, newName: string) => {
+    if (!newName.trim() || oldCategory === 'All' || oldCategory === newName) {
+      setEditingCategory(null);
+      return;
+    }
+
+    const cleanNewName = newName.trim();
+
+    // 1. Update React state
+    const updatedLeads = leads.map(lead => {
+      if ((lead.category || 'Uncategorized') === oldCategory) {
+        return { ...lead, category: cleanNewName };
+      }
+      return lead;
+    });
+
+    setLeads(updatedLeads);
+    localStorage.setItem('saved_leads_local', JSON.stringify(updatedLeads));
+
+    if (selectedCategory === oldCategory) {
+      setSelectedCategory(cleanNewName);
+    }
+
+    setEditingCategory(null);
+
+    // 2. Sync category rename to Appwrite documents
+    try {
+      updatedLeads.forEach(async lead => {
+        if (lead.category === cleanNewName) {
+          try {
+            await databases.updateDocument(
+              DATABASE_ID,
+              COLLECTION_ID,
+              lead.id,
+              { category: cleanNewName }
+            );
+          } catch (e) {
+            // Ignore non-existent document errors
+          }
+        }
+      });
+    } catch (err) {
+      console.warn('Appwrite rename sync error:', err);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-fade-in-up">
       {/* Categories & Filter Bar */}
@@ -114,7 +163,7 @@ const SavedLeadsPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-2xl font-bold text-slate-900">Saved Lead Categories</h3>
-            <p className="text-slate-500 text-sm">Browse businesses saved across different genres (Dentists, Restaurants, etc.)</p>
+            <p className="text-slate-500 text-sm">Browse & organize saved business genres. <span className="font-semibold text-slate-700">Right-click or double-click</span> a category to rename it.</p>
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -146,11 +195,46 @@ const SavedLeadsPage: React.FC = () => {
               ? leads.length 
               : leads.filter(l => (l.category || 'Uncategorized') === cat).length;
 
+            const isEditing = editingCategory === cat;
+
+            if (isEditing) {
+              return (
+                <div key={cat} className="flex items-center gap-1 bg-white p-1 rounded-xl border border-primary shadow-md">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={renameInput}
+                    onChange={(e) => setRenameInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRenameCategory(cat, renameInput);
+                      if (e.key === 'Escape') setEditingCategory(null);
+                    }}
+                    onBlur={() => handleRenameCategory(cat, renameInput)}
+                    className="px-2 py-1 text-xs font-semibold text-slate-800 outline-none w-28 font-sans"
+                  />
+                </div>
+              );
+            }
+
             return (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 shrink-0 ${
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (cat !== 'All') {
+                    setEditingCategory(cat);
+                    setRenameInput(cat);
+                  }
+                }}
+                onDoubleClick={() => {
+                  if (cat !== 'All') {
+                    setEditingCategory(cat);
+                    setRenameInput(cat);
+                  }
+                }}
+                title={cat !== 'All' ? "Right-click or double-click to rename" : ""}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 shrink-0 group relative ${
                   selectedCategory === cat
                     ? 'bg-slate-900 text-white shadow-md'
                     : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50'
