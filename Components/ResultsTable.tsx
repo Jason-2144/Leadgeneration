@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { PlaceResult, SavedLead } from '../types';
-import { Globe, Phone, MapPin, Building2, AlertCircle, Map as MapIcon, BookmarkPlus, Check } from 'lucide-react';
-import { getCustomSupabaseClient } from '../services/supabaseClient';
+import React from 'react';
+import { PlaceResult } from '../types';
+import { Globe, Phone, MapPin, Building2, AlertCircle, Map as MapIcon } from 'lucide-react';
 
 interface ResultsTableProps {
   results: PlaceResult[];
@@ -9,46 +8,7 @@ interface ResultsTableProps {
   searchQuery?: string;
 }
 
-const ResultsTable: React.FC<ResultsTableProps> = ({ results, loading, searchQuery = '' }) => {
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-
-  // Infer genre/category from searchQuery (e.g. "Dentists in Manhattan" => "Dentists")
-  const deriveCategory = (query: string) => {
-    if (!query) return 'General';
-    const cleaned = query.split(' in ')[0].split(' near ')[0].trim();
-    return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : 'General';
-  };
-
-  const handleSaveLead = async (place: PlaceResult) => {
-    const category = deriveCategory(searchQuery);
-    const newLead: SavedLead = {
-      id: place.id || String(Date.now()),
-      place_id: place.id || '',
-      display_name: place.displayName || 'Unknown Business',
-      formatted_address: place.formattedAddress || null,
-      phone_number: place.nationalPhoneNumber || null,
-      website_uri: place.websiteURI || null,
-      category,
-      search_query: searchQuery
-    };
-
-    const url = localStorage.getItem('supabase_url') || 'https://ohvybnoyxtwlpdrsrhdy.supabase.co';
-    const key = localStorage.getItem('supabase_anon_key') || 'sb_publishable__iaAobYrI4PjhzNqAvZHVQ_4kj6acxh';
-
-    if (url && key) {
-      const client = getCustomSupabaseClient(url, key);
-      if (client) {
-        await client.from('leads').upsert([newLead], { onConflict: 'place_id' });
-      }
-    } else {
-      // Local fallback
-      const existing: SavedLead[] = JSON.parse(localStorage.getItem('saved_leads_local') || '[]');
-      const filtered = existing.filter(l => l.place_id !== newLead.place_id);
-      localStorage.setItem('saved_leads_local', JSON.stringify([newLead, ...filtered]));
-    }
-
-    setSavedIds(prev => new Set(prev).add(place.id));
-  };
+const ResultsTable: React.FC<ResultsTableProps> = ({ results, loading }) => {
 
   if (loading) {
     return (

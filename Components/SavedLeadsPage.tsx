@@ -1,33 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Folder, Phone, Globe, MapPin, Search, Trash2, Tag, Download, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
-import { getCustomSupabaseClient } from '../services/supabaseClient';
+import { Folder, Phone, Globe, MapPin, Search, Trash2, Tag, Download } from 'lucide-react';
+import { databases, DATABASE_ID, COLLECTION_ID } from '../services/appwrite';
 import { SavedLead } from '../types';
 
 const SavedLeadsPage: React.FC = () => {
-  const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem('supabase_url') || 'https://ohvybnoyxtwlpdrsrhdy.supabase.co');
-  const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem('supabase_anon_key') || 'sb_publishable__iaAobYrI4PjhzNqAvZHVQ_4kj6acxh');
-  const [isConnected, setIsConnected] = useState(false);
   const [leads, setLeads] = useState<SavedLead[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchFilter, setSearchFilter] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  // Local storage fallback for saved leads if Supabase is not connected
-  const [localLeads, setLocalLeads] = useState<SavedLead[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('saved_leads_local') || '[]');
-    } catch {
-      return [];
-    }
-  });
 
   useEffect(() => {
     fetchLeads();
   }, []);
 
   const fetchLeads = async () => {
-    // 1. Read local storage leads immediately
+    // 1. Read local storage leads immediately so user sees them without delay
     let localStored: SavedLead[] = [];
     try {
       localStored = JSON.parse(localStorage.getItem('saved_leads_local') || '[]');
@@ -36,38 +22,36 @@ const SavedLeadsPage: React.FC = () => {
       console.error(e);
     }
 
-    // 2. Fetch cloud leads from Supabase and merge
+    // 2. Sync cloud leads from Appwrite
     try {
-      const client = getCustomSupabaseClient(supabaseUrl, supabaseKey);
-      if (client) {
-        const { data, error } = await client
-          .from('leads')
-          .select('*')
-          .order('created_at', { ascending: false });
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTION_ID
+      );
+      if (response && response.documents && response.documents.length > 0) {
+        const cloudLeads: SavedLead[] = response.documents.map((doc: any) => ({
+          id: doc.$id || doc.place_id,
+          place_id: doc.place_id || doc.$id,
+          display_name: doc.display_name,
+          formatted_address: doc.formatted_address || null,
+          phone_number: doc.phone_number || null,
+          website_uri: doc.website_uri || null,
+          category: doc.category || 'General',
+          search_query: doc.search_query || ''
+        }));
 
-        if (!error && data && data.length > 0) {
-          // Merge local and cloud without duplicates
-          const cloudIds = new Set(data.map(d => d.place_id));
-          const uniqueLocal = localStored.filter(l => !cloudIds.has(l.place_id));
-          setLeads([...data, ...uniqueLocal]);
-        }
+        const cloudIds = new Set(cloudLeads.map(d => d.place_id));
+        const uniqueLocal = localStored.filter(l => !cloudIds.has(l.place_id));
+        setLeads([...cloudLeads, ...uniqueLocal]);
       }
     } catch (err: any) {
-      console.warn('Supabase fetch skipped, using local leads:', err);
+      console.warn('Appwrite fetch skipped/using local leads:', err);
     }
   };
 
-  const handleConnect = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchLeads();
-  };
+  const categories = ['All', ...Array.from(new Set(leads.map(l => l.category || 'Uncategorized')))];
 
-  const displayLeads = leads;
-
-  // Extract unique categories (e.g. Dentists, Restaurants, Plumbers)
-  const categories = ['All', ...Array.from(new Set(displayLeads.map(l => l.category || 'Uncategorized')))];
-
-  const filteredLeads = displayLeads.filter(lead => {
+  const filteredLeads = leads.filter(lead => {
     const matchesCategory = selectedCategory === 'All' || (lead.category || 'Uncategorized') === selectedCategory;
     const matchesSearch = !searchFilter.trim() || 
       lead.display_name.toLowerCase().includes(searchFilter.toLowerCase()) ||
@@ -77,16 +61,16 @@ const SavedLeadsPage: React.FC = () => {
   });
 
   const handleDeleteLead = async (id: string) => {
-    if (isConnected) {
-      const client = getCustomSupabaseClient(supabaseUrl, supabaseKey);
-      if (client) {
-        await client.from('leads').delete().eq('id', id);
-        setLeads(prev => prev.filter(l => l.id !== id));
-      }
-    } else {
-      const updated = localLeads.filter(l => l.id !== id);
-      setLocalLeads(updated);
-      localStorage.setItem('saved_leads_local', JSON.stringify(updated));
+    // Delete locally
+    const updated = leads.filter(l => l.id !== id && l.place_id !== id);
+    setLeads(updated);
+    localStorage.setItem('saved_leads_local', JSON.stringify(updated));
+
+    // Try deleting from Appwrite
+    try {
+      await databases.deleteDocument(DATABASE_ID, COLLECTION_ID, id);
+    } catch (e) {
+      console.warn('Appwrite delete skipped:', e);
     }
   };
 
@@ -119,7 +103,6 @@ const SavedLeadsPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-in-up">
-
       {/* Categories & Filter Bar */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -154,8 +137,8 @@ const SavedLeadsPage: React.FC = () => {
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           {categories.map((cat) => {
             const count = cat === 'All' 
-              ? displayLeads.length 
-              : displayLeads.filter(l => (l.category || 'Uncategorized') === cat).length;
+              ? leads.length 
+              : leads.filter(l => (l.category || 'Uncategorized') === cat).length;
 
             return (
               <button
@@ -188,7 +171,7 @@ const SavedLeadsPage: React.FC = () => {
           </div>
           <h4 className="text-lg font-bold text-slate-800 mb-1">No saved leads found</h4>
           <p className="text-sm text-slate-500 mb-4">
-            Search for leads in the Lead Scout tab and click "Save to Database" to group them by genre!
+            Search for leads in the Lead Scout tab and they will automatically be saved and grouped by genre!
           </p>
         </div>
       ) : (

@@ -5,8 +5,7 @@ import ResultsTable from './Components/ResultsTable';
 import FilterBar from './Components/Filterbar';
 import SavedLeadsPage from './Components/SavedLeadsPage';
 import { loadGoogleMapsScript, searchPlaces } from './services/mapsService';
-import { client as appwriteClient, databases } from './services/appwrite';
-import { getCustomSupabaseClient } from './services/supabaseClient';
+import { client as appwriteClient, databases, DATABASE_ID, COLLECTION_ID, ID } from './services/appwrite';
 import { PlaceResult, SearchError, SavedLead } from './types';
 
 const HARDCODED_GOOGLE_MAPS_API_KEY = 'AIzaSyBSkRVGAnQUQY6NFklYVQQfqUBxWX1CU2c';
@@ -84,16 +83,18 @@ const App: React.FC = () => {
       console.error('Error saving leads to local storage:', err);
     }
 
-    // 2. Sync to Supabase in background
-    const url = localStorage.getItem('supabase_url') || 'https://ohvybnoyxtwlpdrsrhdy.supabase.co';
-    const key = localStorage.getItem('supabase_anon_key') || 'sb_publishable__iaAobYrI4PjhzNqAvZHVQ_4kj6acxh';
+    // 2. Sync to Appwrite database
     try {
-      const client = getCustomSupabaseClient(url, key);
-      if (client) {
-        await client.from('leads').upsert(leadsToSave, { onConflict: 'place_id' });
+      for (const lead of leadsToSave) {
+        await databases.createDocument(
+          DATABASE_ID,
+          COLLECTION_ID,
+          ID.unique(),
+          lead
+        );
       }
     } catch (err) {
-      console.warn('Supabase sync skipped:', err);
+      console.warn('Appwrite sync skipped (database/collection pending setup):', err);
     }
   };
 
