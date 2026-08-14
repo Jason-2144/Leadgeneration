@@ -5,12 +5,22 @@ import ResultsTable from './Components/ResultsTable';
 import FilterBar from './Components/Filterbar';
 import SavedLeadsPage from './Components/SavedLeadsPage';
 import { loadGoogleMapsScript, searchPlaces } from './services/mapsService';
+import { client as appwriteClient, databases } from './services/appwrite';
 import { getCustomSupabaseClient } from './services/supabaseClient';
 import { PlaceResult, SearchError, SavedLead } from './types';
 
 const HARDCODED_GOOGLE_MAPS_API_KEY = 'AIzaSyBSkRVGAnQUQY6NFklYVQQfqUBxWX1CU2c';
 
 const App: React.FC = () => {
+  React.useEffect(() => {
+    // Ping Appwrite server to verify backend connection setup
+    appwriteClient.ping().then(response => {
+      console.log('Appwrite backend connected & pinged successfully:', response);
+    }).catch(err => {
+      console.warn('Appwrite ping failed:', err);
+    });
+  }, []);
+
   const [apiKey, setApiKey] = useState<string>(() => {
     return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || localStorage.getItem('google_maps_api_key') || HARDCODED_GOOGLE_MAPS_API_KEY;
   });
