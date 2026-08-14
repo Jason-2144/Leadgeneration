@@ -7,7 +7,14 @@ import { loadGoogleMapsScript, searchPlaces } from './services/mapsService';
 import { PlaceResult, SearchError } from './types';
 
 const App: React.FC = () => {
-  const [apiKey, setApiKey] = useState<string>('');
+  const [apiKey, setApiKey] = useState<string>(() => {
+    return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || localStorage.getItem('google_maps_api_key') || '';
+  });
+
+  const handleApiConnected = (key: string) => {
+    localStorage.setItem('google_maps_api_key', key);
+    setApiKey(key);
+  };
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [places, setPlaces] = useState<PlaceResult[]>([]);
@@ -138,7 +145,7 @@ const App: React.FC = () => {
                 Connect your Google Maps API to instantly scout businesses without websites in any area.
               </p>
             </div>
-            <ApiKeyConfig onApiConnected={setApiKey} />
+            <ApiKeyConfig onApiConnected={handleApiConnected} />
           </div>
         ) : (
           <div className="animate-fade-in-up">

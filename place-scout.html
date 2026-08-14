@@ -327,7 +327,12 @@
 
         // --- MAIN APP ---
         const App = () => {
-            const [apiKey, setApiKey] = useState('');
+            const [apiKey, setApiKey] = useState(() => localStorage.getItem('google_maps_api_key') || '');
+            
+            const handleApiConnected = (key) => {
+                localStorage.setItem('google_maps_api_key', key);
+                setApiKey(key);
+            };
             const [searchQuery, setSearchQuery] = useState('');
             const [isLoading, setIsLoading] = useState(false);
             const [places, setPlaces] = useState([]);
@@ -421,7 +426,7 @@
                                     <h2 className="text-3xl font-bold text-slate-900 mb-3">Get Started</h2>
                                     <p className="text-slate-600">Connect Google Maps API to start scouting.</p>
                                 </div>
-                                <ApiKeyConfig onApiConnected={setApiKey} />
+                                <ApiKeyConfig onApiConnected={handleApiConnected} />
                             </div>
                         ) : (
                             <div className="animate-fade-in">
