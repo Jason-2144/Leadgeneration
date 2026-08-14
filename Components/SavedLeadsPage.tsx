@@ -116,66 +116,6 @@ const SavedLeadsPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-in-up">
-      {/* Supabase Connection Bar / Banner */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-xl ${isConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
-              <Database className="h-6 w-6" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                Database Sync
-                {isConnected ? (
-                  <span className="text-xs bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Supabase Connected
-                  </span>
-                ) : (
-                  <span className="text-xs bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-semibold">
-                    Local Storage Mode
-                  </span>
-                )}
-              </h2>
-              <p className="text-sm text-slate-500">
-                {isConnected 
-                  ? 'Leads are automatically synced across devices via Supabase cloud'
-                  : 'Leads are currently saved in browser storage. Connect Supabase to enable cloud persistence.'}
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={handleConnect} className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              placeholder="Supabase Project URL"
-              value={supabaseUrl}
-              onChange={(e) => setSupabaseUrl(e.target.value)}
-              className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary w-44 font-mono"
-            />
-            <input
-              type="password"
-              placeholder="Supabase Anon Key"
-              value={supabaseKey}
-              onChange={(e) => setSupabaseKey(e.target.value)}
-              className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary w-44 font-mono"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
-            >
-              {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'Connect'}
-            </button>
-          </form>
-        </div>
-
-        {errorMsg && (
-          <div className="mt-4 p-3 bg-red-50 text-red-700 text-xs rounded-xl flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-      </div>
 
       {/* Categories & Filter Bar */}
       <div className="space-y-4">
