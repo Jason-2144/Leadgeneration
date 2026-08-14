@@ -57,11 +57,14 @@ const App: React.FC = () => {
 
     const category = deriveCategory(query);
     const leadsToSave: SavedLead[] = fetchedResults.map((place, index) => {
+      const displayName = typeof place.displayName === 'string' 
+        ? place.displayName 
+        : (place.displayName as any)?.text || 'Unknown Business';
       const uniqueId = place.id || `lead_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 5)}`;
       return {
         id: uniqueId,
         place_id: uniqueId,
-        display_name: typeof place.displayName === 'string' ? place.displayName : (place.displayName as any)?.text || 'Unknown Business',
+        display_name: displayName,
         formatted_address: place.formattedAddress || null,
         phone_number: place.nationalPhoneNumber || null,
         website_uri: place.websiteURI || null,
@@ -70,22 +73,7 @@ const App: React.FC = () => {
       };
     });
 
-    const url = localStorage.getItem('supabase_url') || 'https://ohvybnoyxtwlpdrsrhdy.supabase.co';
-    const key = localStorage.getItem('supabase_anon_key') || 'sb_publishable__iaAobYrI4PjhzNqAvZHVQ_4kj6acxh';
-
-    try {
-      const client = getCustomSupabaseClient(url, key);
-      if (client) {
-        const { error } = await client.from('leads').upsert(leadsToSave, { onConflict: 'place_id' });
-        if (error) {
-          console.error('Supabase upsert error:', error);
-        }
-      }
-    } catch (err) {
-      console.error('Error auto-saving leads to Supabase:', err);
-    }
-
-    // Always update local storage as well
+    // 1. Always update local storage first so saved leads are immediately visible
     try {
       const existing: SavedLead[] = JSON.parse(localStorage.getItem('saved_leads_local') || '[]');
       const existingIds = new Set(existing.map(l => l.place_id));
@@ -93,7 +81,19 @@ const App: React.FC = () => {
       const combined = [...newOnly, ...existing];
       localStorage.setItem('saved_leads_local', JSON.stringify(combined));
     } catch (err) {
-      console.error('Error auto-saving leads to local storage:', err);
+      console.error('Error saving leads to local storage:', err);
+    }
+
+    // 2. Sync to Supabase in background
+    const url = localStorage.getItem('supabase_url') || 'https://ohvybnoyxtwlpdrsrhdy.supabase.co';
+    const key = localStorage.getItem('supabase_anon_key') || 'sb_publishable__iaAobYrI4PjhzNqAvZHVQ_4kj6acxh';
+    try {
+      const client = getCustomSupabaseClient(url, key);
+      if (client) {
+        await client.from('leads').upsert(leadsToSave, { onConflict: 'place_id' });
+      }
+    } catch (err) {
+      console.warn('Supabase sync skipped:', err);
     }
   };
 

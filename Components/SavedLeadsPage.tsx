@@ -27,8 +27,16 @@ const SavedLeadsPage: React.FC = () => {
   }, []);
 
   const fetchLeads = async () => {
-    setLoading(true);
-    setErrorMsg('');
+    // 1. Read local storage leads immediately
+    let localStored: SavedLead[] = [];
+    try {
+      localStored = JSON.parse(localStorage.getItem('saved_leads_local') || '[]');
+      setLeads(localStored);
+    } catch (e) {
+      console.error(e);
+    }
+
+    // 2. Fetch cloud leads from Supabase and merge
     try {
       const client = getCustomSupabaseClient(supabaseUrl, supabaseKey);
       if (client) {
@@ -37,21 +45,16 @@ const SavedLeadsPage: React.FC = () => {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
-          setLeads(data);
-          setIsConnected(true);
-          setLoading(false);
-          return;
+        if (!error && data && data.length > 0) {
+          // Merge local and cloud without duplicates
+          const cloudIds = new Set(data.map(d => d.place_id));
+          const uniqueLocal = localStored.filter(l => !cloudIds.has(l.place_id));
+          setLeads([...data, ...uniqueLocal]);
         }
       }
     } catch (err: any) {
-      console.warn('Supabase fetch error, using local leads:', err);
+      console.warn('Supabase fetch skipped, using local leads:', err);
     }
-
-    // Fallback to local leads
-    const stored = JSON.parse(localStorage.getItem('saved_leads_local') || '[]');
-    setLeads(stored);
-    setLoading(false);
   };
 
   const handleConnect = (e: React.FormEvent) => {
