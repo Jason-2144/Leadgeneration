@@ -55,46 +55,67 @@ const App: React.FC = () => {
     if (!fetchedResults || fetchedResults.length === 0) return;
 
     const category = deriveCategory(query);
-    const leadsToSave: SavedLead[] = fetchedResults.map((place, index) => {
-      const displayName = typeof place.displayName === 'string' 
-        ? place.displayName 
-        : (place.displayName as any)?.text || 'Unknown Business';
-      const uniqueId = place.id || `lead_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 5)}`;
-      return {
-        id: uniqueId,
-        place_id: uniqueId,
-        display_name: displayName,
-        formatted_address: place.formattedAddress || null,
-        phone_number: place.nationalPhoneNumber || null,
-        website_uri: place.websiteURI || null,
-        category,
-        search_query: query
-      };
-    });
 
-    // 1. Always update local storage first so saved leads are immediately visible
+    // Create a normalized key signature (e.g. name + address) to strictly avoid saving duplicate businesses
+    const createSignature = (name: string, address: string | null | undefined) => {
+      const cleanName = (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cleanAddr = (address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return `${cleanName}_${cleanAddr}`;
+    };
+
+    // 1. Update local storage with strict deduplication
     try {
       const existing: SavedLead[] = JSON.parse(localStorage.getItem('saved_leads_local') || '[]');
-      const existingIds = new Set(existing.map(l => l.place_id));
-      const newOnly = leadsToSave.filter(l => !existingIds.has(l.place_id));
-      const combined = [...newOnly, ...existing];
-      localStorage.setItem('saved_leads_local', JSON.stringify(combined));
-    } catch (err) {
-      console.error('Error saving leads to local storage:', err);
-    }
+      
+      const existingSignatures = new Set(
+        existing.map(l => createSignature(l.display_name, l.formatted_address))
+      );
 
-    // 2. Sync to Appwrite database
-    try {
-      for (const lead of leadsToSave) {
-        await databases.createDocument(
-          DATABASE_ID,
-          COLLECTION_ID,
-          ID.unique(),
-          lead
-        );
+      const newLeadsToSave: SavedLead[] = [];
+
+      fetchedResults.forEach((place, index) => {
+        const displayName = typeof place.displayName === 'string' 
+          ? place.displayName 
+          : (place.displayName as any)?.text || 'Unknown Business';
+        
+        const signature = createSignature(displayName, place.formattedAddress);
+
+        if (!existingSignatures.has(signature)) {
+          existingSignatures.add(signature);
+          const uniqueId = place.id || `lead_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 5)}`;
+          newLeadsToSave.push({
+            id: uniqueId,
+            place_id: uniqueId,
+            display_name: displayName,
+            formatted_address: place.formattedAddress || null,
+            phone_number: place.nationalPhoneNumber || null,
+            website_uri: place.websiteURI || null,
+            category,
+            search_query: query
+          });
+        }
+      });
+
+      if (newLeadsToSave.length > 0) {
+        const combined = [...newLeadsToSave, ...existing];
+        localStorage.setItem('saved_leads_local', JSON.stringify(combined));
+
+        // 2. Sync only brand new non-duplicate leads to Appwrite database
+        try {
+          for (const lead of newLeadsToSave) {
+            await databases.createDocument(
+              DATABASE_ID,
+              COLLECTION_ID,
+              ID.unique(),
+              lead
+            );
+          }
+        } catch (err) {
+          console.warn('Appwrite sync skipped (database/collection pending setup):', err);
+        }
       }
     } catch (err) {
-      console.warn('Appwrite sync skipped (database/collection pending setup):', err);
+      console.error('Error saving leads:', err);
     }
   };
 

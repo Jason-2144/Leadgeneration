@@ -22,7 +22,13 @@ const SavedLeadsPage: React.FC = () => {
       console.error(e);
     }
 
-    // 2. Sync cloud leads from Appwrite
+    const createSignature = (name: string, address: string | null | undefined) => {
+      const cleanName = (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cleanAddr = (address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return `${cleanName}_${cleanAddr}`;
+    };
+
+    // 2. Sync cloud leads from Appwrite & deduplicate by name + address signature
     try {
       const response = await databases.listDocuments(
         DATABASE_ID,
@@ -40,8 +46,8 @@ const SavedLeadsPage: React.FC = () => {
           search_query: doc.search_query || ''
         }));
 
-        const cloudIds = new Set(cloudLeads.map(d => d.place_id));
-        const uniqueLocal = localStored.filter(l => !cloudIds.has(l.place_id));
+        const cloudSigs = new Set(cloudLeads.map(d => createSignature(d.display_name, d.formatted_address)));
+        const uniqueLocal = localStored.filter(l => !cloudSigs.has(createSignature(l.display_name, l.formatted_address)));
         setLeads([...cloudLeads, ...uniqueLocal]);
       }
     } catch (err: any) {
