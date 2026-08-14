@@ -23,43 +23,43 @@ const SavedLeadsPage: React.FC = () => {
   });
 
   useEffect(() => {
-    if (supabaseUrl && supabaseKey) {
-      fetchSupabaseLeads();
-    }
+    fetchLeads();
   }, []);
 
-  const fetchSupabaseLeads = async () => {
-    if (!supabaseUrl || !supabaseKey) return;
+  const fetchLeads = async () => {
     setLoading(true);
     setErrorMsg('');
     try {
       const client = getCustomSupabaseClient(supabaseUrl, supabaseKey);
-      if (!client) throw new Error('Invalid Supabase configuration');
-      
-      const { data, error } = await client
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
+      if (client) {
+        const { data, error } = await client
+          .from('leads')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setLeads(data || []);
-      setIsConnected(true);
-      localStorage.setItem('supabase_url', supabaseUrl);
-      localStorage.setItem('supabase_anon_key', supabaseKey);
+        if (!error && data) {
+          setLeads(data);
+          setIsConnected(true);
+          setLoading(false);
+          return;
+        }
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to connect to Supabase');
-      setIsConnected(false);
-    } finally {
-      setLoading(false);
+      console.warn('Supabase fetch error, using local leads:', err);
     }
+
+    // Fallback to local leads
+    const stored = JSON.parse(localStorage.getItem('saved_leads_local') || '[]');
+    setLeads(stored);
+    setLoading(false);
   };
 
   const handleConnect = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchSupabaseLeads();
+    fetchLeads();
   };
 
-  const displayLeads = isConnected ? leads : localLeads;
+  const displayLeads = leads;
 
   // Extract unique categories (e.g. Dentists, Restaurants, Plumbers)
   const categories = ['All', ...Array.from(new Set(displayLeads.map(l => l.category || 'Uncategorized')))];

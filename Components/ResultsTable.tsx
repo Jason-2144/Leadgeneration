@@ -87,13 +87,11 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, loading, searchQue
               <th className="px-8 py-5 first:rounded-tl-3xl">Business Details</th>
               <th className="px-6 py-5">Digital Presence</th>
               <th className="px-6 py-5">Contact</th>
-              <th className="px-6 py-5">Location</th>
-              <th className="px-6 py-5 text-right last:rounded-tr-3xl">Save Lead</th>
+              <th className="px-6 py-5 last:rounded-tr-3xl">Location</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {results.map((place, idx) => {
-              const isSaved = savedIds.has(place.id);
               return (
                 <tr
                   key={place.id || idx}
@@ -153,27 +151,6 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, loading, searchQue
                         </a>
                       )}
                     </div>
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <button
-                      onClick={() => handleSaveLead(place)}
-                      disabled={isSaved}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all inline-flex items-center gap-1.5 ${
-                        isSaved
-                          ? 'bg-emerald-100 text-emerald-800 cursor-default'
-                          : 'bg-slate-900 hover:bg-slate-800 text-white shadow-sm active:scale-95'
-                      }`}
-                    >
-                      {isSaved ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" /> Saved
-                        </>
-                      ) : (
-                        <>
-                          <BookmarkPlus className="w-3.5 h-3.5" /> Save Lead
-                        </>
-                      )}
-                    </button>
                   </td>
                 </tr>
               );
