@@ -32,8 +32,8 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, loading, searchQue
       search_query: searchQuery
     };
 
-    const url = localStorage.getItem('supabase_url');
-    const key = localStorage.getItem('supabase_anon_key');
+    const url = localStorage.getItem('supabase_url') || 'https://ohvybnoyxtwlpdrsrhdy.supabase.co';
+    const key = localStorage.getItem('supabase_anon_key') || 'sb_publishable__iaAobYrI4PjhzNqAvZHVQ_4kj6acxh';
 
     if (url && key) {
       const client = getCustomSupabaseClient(url, key);

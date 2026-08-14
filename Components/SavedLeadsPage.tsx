@@ -4,8 +4,8 @@ import { getCustomSupabaseClient } from '../services/supabaseClient';
 import { SavedLead } from '../types';
 
 const SavedLeadsPage: React.FC = () => {
-  const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem('supabase_url') || '');
-  const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem('supabase_anon_key') || '');
+  const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem('supabase_url') || 'https://ohvybnoyxtwlpdrsrhdy.supabase.co');
+  const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem('supabase_anon_key') || 'sb_publishable__iaAobYrI4PjhzNqAvZHVQ_4kj6acxh');
   const [isConnected, setIsConnected] = useState(false);
   const [leads, setLeads] = useState<SavedLead[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
