@@ -5,7 +5,8 @@ import ResultsTable from './Components/ResultsTable';
 import FilterBar from './Components/Filterbar';
 import SavedLeadsPage from './Components/SavedLeadsPage';
 import { loadGoogleMapsScript, searchPlaces } from './services/mapsService';
-import { PlaceResult, SearchError } from './types';
+import { getCustomSupabaseClient } from './services/supabaseClient';
+import { PlaceResult, SearchError, SavedLead } from './types';
 
 const App: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>(() => {
@@ -33,6 +34,50 @@ const App: React.FC = () => {
     return places.filter(place => !place.websiteURI);
   }, [places, showNoWebsiteOnly]);
 
+  const deriveCategory = (query: string) => {
+    if (!query) return 'General';
+    const cleaned = query.split(' in ')[0].split(' near ')[0].trim();
+    return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : 'General';
+  };
+
+  const autoSaveLeadsToDatabase = async (fetchedResults: PlaceResult[], query: string) => {
+    if (!fetchedResults || fetchedResults.length === 0) return;
+
+    const category = deriveCategory(query);
+    const leadsToSave: SavedLead[] = fetchedResults.map(place => ({
+      id: place.id || String(Math.random()),
+      place_id: place.id || '',
+      display_name: place.displayName || 'Unknown Business',
+      formatted_address: place.formattedAddress || null,
+      phone_number: place.nationalPhoneNumber || null,
+      website_uri: place.websiteURI || null,
+      category,
+      search_query: query
+    }));
+
+    const url = localStorage.getItem('supabase_url') || 'https://ohvybnoyxtwlpdrsrhdy.supabase.co';
+    const key = localStorage.getItem('supabase_anon_key') || 'sb_publishable__iaAobYrI4PjhzNqAvZHVQ_4kj6acxh';
+
+    try {
+      const client = getCustomSupabaseClient(url, key);
+      if (client) {
+        await client.from('leads').upsert(leadsToSave, { onConflict: 'place_id' });
+      }
+    } catch (err) {
+      console.error('Error auto-saving leads to Supabase:', err);
+    }
+
+    // Local fallback copy
+    try {
+      const existing: SavedLead[] = JSON.parse(localStorage.getItem('saved_leads_local') || '[]');
+      const existingIds = new Set(existing.map(l => l.place_id));
+      const combined = [...leadsToSave.filter(l => !existingIds.has(l.place_id)), ...existing];
+      localStorage.setItem('saved_leads_local', JSON.stringify(combined));
+    } catch (err) {
+      console.error('Error auto-saving leads to local storage:', err);
+    }
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim() || !apiKey) return;
@@ -56,6 +101,9 @@ const App: React.FC = () => {
         }
         return results;
       });
+
+      // Automatically save all fetched leads directly into Supabase!
+      autoSaveLeadsToDatabase(results, searchQuery);
 
     } catch (err: any) {
       console.error(err);
